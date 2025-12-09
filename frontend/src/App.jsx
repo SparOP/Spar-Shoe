@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'; 
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'; // Added useNavigate
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'; 
 import Navbar from './components/NavbarMain';
 import Footer from './components/Footer'; 
 import Login from './pages/Login';
@@ -8,7 +8,7 @@ import Checkout from './pages/Checkout';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import { useCart } from './context/CartContext'; 
-import { useAuth } from './context/AuthContext'; // <--- NEW IMPORT
+import { useAuth } from './context/AuthContext'; 
 
 // Home Component receives 'searchTerm' as a prop from App
 function Home({ searchTerm }) {
@@ -22,12 +22,10 @@ function Home({ searchTerm }) {
 
   const handleAddToCart = (shoe) => {
     if (!auth.token) {
-      // If not logged in, show alert and redirect
       alert("Please login to buy shoes! 👟");
       navigate('/login');
       return;
     }
-    // If logged in, add to cart
     addToCart(shoe);
   };
   // ---------------------------
@@ -67,10 +65,16 @@ function Home({ searchTerm }) {
   };
   
   return (
-    <div className="bg-gray-50 dark:bg-gray-950 transition-colors duration-300 p-4 md:p-8 font-sans animate-fade-in">
+    // Added 'relative overflow-hidden' for the background glow
+    <div className="bg-gray-50 dark:bg-gray-950 transition-colors duration-300 p-4 md:p-8 font-sans animate-fade-in relative overflow-hidden">
+      
+      {/* --- NEW: Background Glow Effect --- */}
+      {/* This adds a subtle blue light behind the text */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-blue-500/20 dark:bg-blue-600/20 rounded-full blur-[100px] -z-1 pointer-events-none mix-blend-screen"></div>
       
       {/* Hero Section */}
-      <div className="text-center py-12 md:py-20 animate-fade-in-up">
+      {/* Added 'relative z-10' to keep text on top of the glow */}
+      <div className="text-center py-12 md:py-20 animate-fade-in-up relative z-10">
         <h1 className="text-5xl md:text-7xl font-black text-gray-900 dark:text-white tracking-tighter mb-6">
           RUN FASTER. <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">FLY HIGHER.</span>
@@ -81,7 +85,7 @@ function Home({ searchTerm }) {
       </div>
       
       {/* FILTER BUTTONS */}
-      <div className="max-w-7xl mx-auto mb-12 flex flex-wrap justify-center gap-3">
+      <div className="max-w-7xl mx-auto mb-12 flex flex-wrap justify-center gap-3 relative z-10">
         {categories.map((category) => (
           <button
             key={category}
@@ -99,11 +103,11 @@ function Home({ searchTerm }) {
 
       {/* PRODUCT GRID */}
       {products.length === 0 ? (
-         <div className="text-center py-20">
+         <div className="text-center py-20 relative z-10">
              <h2 className="text-2xl font-bold text-gray-400">No shoes found matching your search.</h2>
          </div>
       ) : (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 max-w-7xl mx-auto pb-20">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 max-w-7xl mx-auto pb-20 relative z-10">
         {products.map((shoe) => (
           <div key={shoe._id} className="group relative bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-[0_20px_50px_rgba(8,_112,_184,_0.15)] transition-all duration-300 hover:-translate-y-2 hover:border-blue-200 dark:hover:border-blue-900">
             
@@ -124,7 +128,6 @@ function Home({ searchTerm }) {
               
               <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-50 dark:border-gray-800">
                 <span className="text-xl font-black text-gray-900 dark:text-white">₹{shoe.price}</span>
-                {/* UPDATED BUTTON: Calls handleAddToCart instead of addToCart directly */}
                 <button 
                   onClick={() => handleAddToCart(shoe)} 
                   className="bg-gray-900 dark:bg-white text-white dark:text-black px-5 py-2.5 rounded-xl font-bold hover:bg-blue-600 dark:hover:bg-blue-400 hover:text-white transition-all shadow-lg hover:shadow-blue-500/30 hover:scale-105 active:scale-95"
