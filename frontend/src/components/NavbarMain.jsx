@@ -39,16 +39,16 @@ export default function Navbar({ onSearch }) {
       <nav className="max-w-7xl mx-auto bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-white/20 dark:border-gray-700/50 rounded-2xl shadow-xl transition-all duration-300">
         <div className="px-6 h-20 flex items-center justify-between gap-4">
           
-          {/* 1. LOGO SECTION */}
+          {/* 1. LOGO SECTION - UPDATED FOR MOBILE VISIBILITY */}
           <Link to="/" className="flex items-center gap-3 group flex-shrink-0">
-            {/* Logo Image with rounded corners and rotation effect */}
+            {/* Logo Image */}
             <img 
                 src={logoImg} 
                 alt="Spar-Shoe" 
-                // Added 'rounded-xl' here for rounded edges
                 className="w-12 h-12 object-contain rounded-xl group-hover:-rotate-12 transition-transform duration-300 drop-shadow-lg"
             />
-            <span className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 hidden md:block">
+            {/* BRAND TEXT: Now visible on mobile (text-lg) and larger on desktop (md:text-2xl) */}
+            <span className="text-lg md:text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 block">
               Spar-Shoe
             </span>
           </Link>
