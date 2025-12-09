@@ -5,29 +5,39 @@ const CartContext = createContext();
 export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
-    // 1. Initialize cart state from local storage
+    
     const [cart, setCart] = useState(() => {
         const localData = localStorage.getItem('sparshoe_cart');
         return localData ? JSON.parse(localData) : [];
     });
 
-    // 2. Sync cart state with local storage on every change
     useEffect(() => {
         localStorage.setItem('sparshoe_cart', JSON.stringify(cart));
     }, [cart]);
 
-    // 3. Add item to cart (allows duplicates for simplicity)
     const addToCart = (product) => {
+        // We add a unique timestamp property for debugging/future quantity tracking
         setCart(currentCart => [...currentCart, { ...product, addedAt: Date.now() }]); 
     };
     
-    // 4. FIX: Remove item from cart
-    // This removes ALL instances of the product with the matching MongoDB _id
+    // FIX: Remove only the first instance of a matching product ID
     const removeFromCart = (idToRemove) => {
-        setCart(currentCart => currentCart.filter(item => item._id !== idToRemove));
+        setCart(currentCart => {
+            // 1. Find the index of the first item with this _id
+            const indexToRemove = currentCart.findIndex(item => item._id === idToRemove);
+
+            // 2. If the item is found (index is not -1)
+            if (indexToRemove > -1) {
+                // Create a copy of the array
+                const newCart = [...currentCart]; 
+                // Remove ONE item at the found index
+                newCart.splice(indexToRemove, 1); 
+                return newCart; // Set the new state
+            }
+            return currentCart; // If not found, return the original cart
+        });
     };
 
-    // 5. Clear entire cart
     const clearCart = () => {
         setCart([]);
     };
