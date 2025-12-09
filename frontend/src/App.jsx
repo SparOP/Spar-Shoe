@@ -1,19 +1,36 @@
 import { useEffect, useState, useCallback } from 'react'; 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'; // Added useNavigate
 import Navbar from './components/NavbarMain';
-import Footer from './components/Footer'; // <--- NEW IMPORT: Footer is now active
+import Footer from './components/Footer'; 
 import Login from './pages/Login';
 import Admin from './pages/Admin'; 
 import Checkout from './pages/Checkout'; 
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import { useCart } from './context/CartContext'; 
+import { useAuth } from './context/AuthContext'; // <--- NEW IMPORT
 
 // Home Component receives 'searchTerm' as a prop from App
 function Home({ searchTerm }) {
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null); 
   const { addToCart } = useCart(); 
+  
+  // --- AUTH SECURITY LOGIC ---
+  const { auth } = useAuth();      
+  const navigate = useNavigate();  
+
+  const handleAddToCart = (shoe) => {
+    if (!auth.token) {
+      // If not logged in, show alert and redirect
+      alert("Please login to buy shoes! 👟");
+      navigate('/login');
+      return;
+    }
+    // If logged in, add to cart
+    addToCart(shoe);
+  };
+  // ---------------------------
 
   // Base URL for API calls
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
@@ -107,8 +124,9 @@ function Home({ searchTerm }) {
               
               <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-50 dark:border-gray-800">
                 <span className="text-xl font-black text-gray-900 dark:text-white">₹{shoe.price}</span>
+                {/* UPDATED BUTTON: Calls handleAddToCart instead of addToCart directly */}
                 <button 
-                  onClick={() => addToCart(shoe)} 
+                  onClick={() => handleAddToCart(shoe)} 
                   className="bg-gray-900 dark:bg-white text-white dark:text-black px-5 py-2.5 rounded-xl font-bold hover:bg-blue-600 dark:hover:bg-blue-400 hover:text-white transition-all shadow-lg hover:shadow-blue-500/30 hover:scale-105 active:scale-95"
                 >
                   Buy Now
@@ -128,19 +146,12 @@ export default function App() {
 
   return (
     <Router>
-      {/* LAYOUT FIX: 
-        'flex flex-col' makes the main div a column layout.
-        'min-h-screen' makes sure it takes up at least 100% of the screen height.
-      */}
       <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950 font-sans selection:bg-blue-500 selection:text-white"> 
         
         {/* Navbar at the top */}
         <Navbar onSearch={setSearchTerm} />
           
-        {/* CONTENT WRAPPER:
-           'flex-grow' tells this div to take up all available space.
-           This pushes the Footer to the bottom if the page content is short.
-        */}
+        {/* Main Content */}
         <div className="flex-grow">
           <Routes>
             <Route path="/" element={<Home searchTerm={searchTerm} />} />
