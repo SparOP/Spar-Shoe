@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'; 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
+import Navbar from './components/NavbarMain';
 import Footer from './components/Footer'; // <--- NEW IMPORT: Footer is now active
 import Login from './pages/Login';
 import Admin from './pages/Admin'; 
