@@ -51,7 +51,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 4: Contact - UPDATED */}
+          {/* Column 4: Contact - UPDATED WITH SAFE PLACEHOLDER */}
           <div>
             <h3 className="font-bold text-gray-900 dark:text-white mb-4 uppercase text-xs tracking-wider">Contact Us</h3>
             <ul className="space-y-4 text-sm text-gray-500 dark:text-gray-400">
@@ -59,9 +59,10 @@ export default function Footer() {
                 <MapPin size={18} className="mt-0.5 text-blue-600" />
                 <span>123 Shoe Lane, Tech Park,<br />Kolkata, WB 700091</span>
               </li>
+              {/* UPDATED PHONE NUMBER HERE */}
               <li className="flex items-center gap-3">
                 <Phone size={18} className="text-blue-600" />
-                <span>+91 1234567890</span>
+                <span>+91 12345 67890</span> 
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={18} className="text-blue-600" />
