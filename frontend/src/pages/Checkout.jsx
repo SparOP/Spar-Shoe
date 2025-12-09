@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'; // <-- NEW IMPORT
 
 // IMPORTANT: Replace the placeholder key below with your actual Razorpay Test Key ID.
 // ⚠️ PASTE YOUR ACTUAL rzp_test_... KEY ID HERE! ⚠️
-const RAZORPAY_KEY_ID = "YOUR_ACTUAL_RAZORPAY_TEST_KEY_ID_HERE"; 
+const RAZORPAY_KEY_ID = "rzp_test_RpgPHQKbNn3UED"; 
 
 export default function Checkout() {
   const { cart, removeFromCart, clearCart } = useCart(); // Added clearCart if available
