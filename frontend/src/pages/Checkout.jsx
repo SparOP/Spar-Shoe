@@ -1,16 +1,21 @@
 import { X, ShoppingCart, IndianRupee } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
-import axios from 'axios';
+import { useEffect, useState } from 'react'; // <-- Added useState
+import { useAuth } from '../context/AuthContext'; // <-- NEW IMPORT
+// import axios from 'axios'; // Not needed, using fetch
 
 // IMPORTANT: Replace the placeholder key below with your actual Razorpay Test Key ID.
+// ⚠️ PASTE YOUR ACTUAL rzp_test_... KEY ID HERE! ⚠️
 const RAZORPAY_KEY_ID = "YOUR_ACTUAL_RAZORPAY_TEST_KEY_ID_HERE"; 
 
 export default function Checkout() {
-  const { cart, removeFromCart } = useCart();
+  const { cart, removeFromCart, clearCart } = useCart(); // Added clearCart if available
   const navigate = useNavigate();
   
+  const { auth } = useAuth(); // Get user info for prefill
+  const [loading, setLoading] = useState(false); // Loading state
+
   // Base URL for API calls, deployment ready
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
@@ -20,7 +25,7 @@ export default function Checkout() {
   const shipping = subtotal > 0 ? 150 : 0; 
   const total = subtotal + tax + shipping;
   
-  // Razorpay requires the amount in PAUSE (100 paise = 1 Rupee)
+  // Razorpay requires the amount in PAISA (100 paise = 1 Rupee)
   const totalInPaise = Math.round(total * 100); 
 
   // Function to load the official Razorpay script dynamically
@@ -41,32 +46,53 @@ export default function Checkout() {
         return;
       }
 
-      // If the key is still the placeholder, alert the user to fix it.
-      if (RAZORPAY_KEY_ID.includes('YOUR_ACTUAL_RAZORPAY_TEST_KEY_ID')) {
-        alert("CRITICAL ERROR: Please replace the placeholder key in Checkout.jsx with your actual Razorpay Test Key ID.");
+      setLoading(true);
+
+      // 1. CRITICAL STEP: Call Backend to Create an Order
+      const res = await fetch(`${API_BASE_URL}/api/payment/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Assuming you have the user token if needed for secure order logging
+          'Authorization': `Bearer ${auth.token}` 
+        },
+        body: JSON.stringify({ amount: total }), 
+      });
+
+      const orderData = await res.json();
+
+      if (res.status !== 200 || !orderData.id) {
+        alert("Failed to create payment order. Check Render logs for Razorpay Key errors!");
+        setLoading(false);
         return;
       }
 
-      // 1. Prepare Payment Options
+      // 2. Prepare Payment Options
       const options = {
           key: RAZORPAY_KEY_ID, 
-          amount: totalInPaise, 
-          currency: "INR",
+          amount: orderData.amount, // Use amount from server (in paise)
+          currency: orderData.currency,
           name: "Spar-Shoe E-Commerce",
           description: "Premium Online Shoe Order (MCA Project)",
-          image: "https://via.placeholder.com/100/3B82F6/FFFFFF?text=Shoe", // Placeholder Logo
+          image: "/logo.png", 
+          order_id: orderData.id, 
           handler: function (response) {
               // --- PAYMENT SUCCESS CALLBACK ---
               alert("Payment Successful! Order ID: " + response.razorpay_order_id);
               
-              // 2. Final Action: Clear the cart and redirect
-              // Note: You would typically send this response to the backend to verify and record the payment.
-              cart.forEach(item => removeFromCart(item._id)); 
+              // 3. Final Action: Clear the cart and redirect
+              if (typeof clearCart === 'function') {
+                clearCart(); 
+              } else {
+                // Fallback clear logic if clearCart is not available in context
+                cart.forEach(item => removeFromCart(item._id)); 
+              }
+              
               navigate('/');
           },
           prefill: {
-              name: "Test User", 
-              email: "test.user@example.com",
+              name: auth.user || "Customer", 
+              email: "test.user@example.com", // Replace with auth.email if available
               contact: "9999999999"
           },
           theme: {
@@ -74,9 +100,11 @@ export default function Checkout() {
           }
       };
 
-      // 2. Open the Razorpay Checkout Modal
+      // 4. Open the Razorpay Checkout Modal
       const paymentObject = new window.Razorpay(options);
       paymentObject.open();
+
+      setLoading(false);
   };
 
   // --- Empty Cart View ---
@@ -156,9 +184,10 @@ export default function Checkout() {
               {/* Checkout Button - CONNECTED TO RAZORPAY */}
               <button 
                 onClick={handlePayment}
-                className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02]"
+                disabled={loading}
+                className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02] disabled:opacity-50"
               >
-                Proceed to Payment (₹{total.toFixed(2)})
+                {loading ? "Initializing Payment..." : `Pay Now with Razorpay (₹${total.toFixed(2)})`}
               </button>
 
             </div>

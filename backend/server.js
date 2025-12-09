@@ -9,6 +9,7 @@ require('dotenv').config();
 // NEW IMPORTS FOR EMAIL & TOKEN
 const crypto = require('crypto'); 
 const nodemailer = require('nodemailer'); 
+const Razorpay = require('razorpay'); // <--- NEW IMPORT FOR PAYMENTS
 
 // Import Security Middleware
 const auth = require('./middleware/auth'); 
@@ -18,7 +19,15 @@ const Product = require('./models/Product');
 
 const app = express();
 app.use(express.json()); // Allows server to read JSON data from client
-app.use(cors()); // Allows Frontend (port 5173) to talk to Backend (port 5000)
+
+// CORS CONFIGURATION (Updated for Vercel deployment)
+app.use(cors({
+  origin: [
+    "http://localhost:5173", 
+    "https://spar-shoe.vercel.app" // Your live frontend URL
+  ],
+  credentials: true
+}));
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -34,7 +43,7 @@ app.get('/', (req, res) => {
 //                  I. AUTHENTICATION ROUTES
 // =========================================================
 
-// 1. Register User Route (Sign Up) - UPDATED WITH PROFESSIONAL EMAIL
+// 1. Register User Route (Sign Up)
 app.post('/api/auth/register', async (req, res) => {
     const { name, email, password } = req.body; 
     try {
@@ -46,7 +55,6 @@ app.post('/api/auth/register', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         
-        // Generate verification token (30 minute expiry)
         const verificationToken = crypto.randomBytes(20).toString('hex');
 
         user = new User({
@@ -56,18 +64,18 @@ app.post('/api/auth/register', async (req, res) => {
             role: 'customer', 
             isVerified: false, 
             verificationToken: verificationToken,
-            verificationTokenExpires: Date.now() + 1800000 // 30 minutes
+            verificationTokenExpires: Date.now() + 1800000 
         });
 
         await user.save();
         
-        // --- Send Professional Verification Email ---
         const transporter = nodemailer.createTransport({
             service: 'gmail', 
             auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
         });
 
-        const verificationUrl = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
+        // NOTE: In production, change localhost to your Render backend URL if needed for verification
+        const verificationUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/verify-email/${verificationToken}`;
         
         const mailOptions = {
             to: user.email,
@@ -76,37 +84,19 @@ app.post('/api/auth/register', async (req, res) => {
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; background-color: #ffffff;">
                     <h2 style="color: #2563EB; text-align: center; margin-bottom: 20px;">Welcome to Spar-Shoe! 👟</h2>
-                    
                     <p style="font-size: 16px; color: #333; line-height: 1.5;">Hi there,</p>
-                    
-                    <p style="font-size: 16px; color: #333; line-height: 1.5;">Thank you for creating an account with <strong>Spar-Shoe</strong>.</p>
-                    
-                    <p style="font-size: 16px; color: #333; line-height: 1.5;">To keep your account secure and ensure a smooth shopping experience, please verify your email address by clicking the link below:</p>
-                    
+                    <p style="font-size: 16px; color: #333; line-height: 1.5;">Thank you for creating an account. Please verify your email:</p>
                     <div style="text-align: center; margin: 35px 0;">
-                        <a href="${verificationUrl}" style="background-color: #2563EB; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);">
+                        <a href="${verificationUrl}" style="background-color: #2563EB; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
                             👉 Verify Email Address
                         </a>
                     </div>
-
-                    <p style="font-size: 14px; color: #666; margin-top: 20px;">If you did not request this verification, you can safely ignore this email.</p>
-                    <p style="font-size: 14px; color: #666;">Your account will remain inactive until your email is verified.</p>
-                    
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">
-                    
-                    <p style="font-size: 14px; color: #888;">For any assistance, our support team is always here to help.</p>
-                    <p style="font-size: 14px; color: #333; line-height: 1.6;">
-                        Thank you,<br>
-                        <strong>Spar-Shoe Team</strong><br>
-                        <em style="color: #2563EB; font-weight: bold;">Run Faster. Fly Higher.</em>
-                    </p>
                 </div>
             `
         };
 
         await transporter.sendMail(mailOptions);
-        
-        res.status(201).json({ message: 'Registration Successful! Please check your email to verify your account before logging in.' });
+        res.status(201).json({ message: 'Registration Successful! Please check your email.' });
 
     } catch (err) {
         console.error('Registration Error:', err.message);
@@ -114,7 +104,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// 2. Login User Route (Sign In) - FIXED FOR ADMIN ACCESS
+// 2. Login User Route
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -123,9 +113,8 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(400).json({ message: 'Invalid Credentials' });
         }
         
-        // FIXED CHECK: Block unverified users ONLY if they are NOT admins
         if (!user.isVerified && user.role !== 'admin') {
-            return res.status(401).json({ message: 'Account not verified. Please check your email for the verification link.' });
+            return res.status(401).json({ message: 'Account not verified. Please check your email.' });
         }
         
         const isMatch = await bcrypt.compare(password, user.password);
@@ -133,7 +122,6 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(400).json({ message: 'Invalid Credentials' });
         }
 
-        // Create JWT (JSON Web Token)
         const payload = { user: { id: user.id, role: user.role } };
         jwt.sign(
             payload, 'mySecretKey', { expiresIn: '1h' },
@@ -148,8 +136,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-
-// 3. Request Password Reset Link (Forgot Password - Step 1)
+// 3. Forgot Password Route
 app.post('/api/auth/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
@@ -158,33 +145,27 @@ app.post('/api/auth/forgot-password', async (req, res) => {
             return res.json({ message: 'If user exists, a password reset email has been sent.' });
         }
 
-        // Generate reset token (1 hour expiry)
         const resetToken = crypto.randomBytes(20).toString('hex');
         user.resetPasswordToken = resetToken;
         user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
         await user.save();
 
-        // 1. Create transporter (Email Sender)
         const transporter = nodemailer.createTransport({
             service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            }
+            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
         });
 
-        // 2. Construct the frontend reset link
-        const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
+        // Use Vercel URL for production, localhost for dev
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
-        // 3. Email content
         const mailOptions = {
             to: user.email,
             from: process.env.EMAIL_USER,
             subject: 'Password Reset Request',
-            html: `<p>You requested a password reset. Click this link to reset your password within one hour:</p><a href="${resetUrl}">Reset Password</a>`
+            html: `<p>Click this link to reset your password:</p><a href="${resetUrl}">Reset Password</a>`
         };
 
-        // 4. Send the email
         await transporter.sendMail(mailOptions);
         res.json({ message: 'If user exists, a password reset email has been sent.' });
 
@@ -194,19 +175,18 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 });
 
-// 4. Reset Password with Token (Forgot Password - Step 2)
+// 4. Reset Password Route
 app.post('/api/auth/reset-password/:token', async (req, res) => {
     try {
         const user = await User.findOne({ 
             resetPasswordToken: req.params.token,
-            resetPasswordExpires: { $gt: Date.now() } // Check if token is not expired
+            resetPasswordExpires: { $gt: Date.now() } 
         });
 
         if (!user) {
-            return res.status(400).json({ message: 'Password reset token is invalid or has expired.' });
+            return res.status(400).json({ message: 'Token is invalid or expired.' });
         }
 
-        // Hash new password
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(req.body.newPassword, salt);
         user.resetPasswordToken = undefined;
@@ -221,16 +201,16 @@ app.post('/api/auth/reset-password/:token', async (req, res) => {
     }
 });
 
-// 5. Email Verification Route (New Route)
+// 5. Verify Email Route
 app.get('/api/auth/verify-email/:token', async (req, res) => {
     try {
         const user = await User.findOne({ 
             verificationToken: req.params.token,
-            verificationTokenExpires: { $gt: Date.now() } // Check if token is not expired
+            verificationTokenExpires: { $gt: Date.now() } 
         });
 
         if (!user) {
-            return res.status(400).send('<h1>Email verification link is invalid or has expired.</h1><p>Please re-register or contact support.</p>');
+            return res.status(400).send('<h1>Link invalid or expired.</h1>');
         }
 
         user.isVerified = true;
@@ -238,12 +218,12 @@ app.get('/api/auth/verify-email/:token', async (req, res) => {
         user.verificationTokenExpires = undefined;
         await user.save();
 
-        // Redirect user to a success page or the login page
-        res.redirect('http://localhost:5173/login?verified=true');
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        res.redirect(`${frontendUrl}/login?verified=true`);
 
     } catch (err) {
         console.error('Verification Error:', err.message);
-        res.status(500).send('Server error during verification.');
+        res.status(500).send('Server error.');
     }
 });
 
@@ -252,9 +232,7 @@ app.get('/api/auth/verify-email/:token', async (req, res) => {
 //                  II. PRODUCT ROUTES (CRUD)
 // =========================================================
 
-// 1. Add a new Shoe (CREATE - POST) - SECURED
 app.post('/api/products', auth, async (req, res) => {
-    // Check role from the token payload
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Access denied: Admin role required' });
     }
@@ -267,19 +245,12 @@ app.post('/api/products', auth, async (req, res) => {
     }
 });
 
-// 2. Get all Shoes (READ - GET) - UPDATED FOR SEARCH & FILTER
 app.get('/api/products', async (req, res) => {
     try {
         const { category, search } = req.query; 
-
         let filter = {};
         
-        // 1. Apply Category Filter
-        if (category) {
-            filter.category = category;
-        }
-
-        // 2. Apply Search Filter (Regex for partial match, case-insensitive)
+        if (category) filter.category = category;
         if (search) {
             filter.$or = [
                 { name: { $regex: search, $options: 'i' } },
@@ -294,18 +265,12 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-// 3. Update/Edit a Shoe (UPDATE - PUT) - SECURED
 app.put('/api/products/:id', auth, async (req, res) => {
-    // Check role from the token payload
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Access denied: Admin role required' });
     }
     try {
-        const product = await Product.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true } 
-        );
+        const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
         if (!product) return res.status(404).send('Product not found.');
         res.json(product);
     } catch (err) {
@@ -313,9 +278,7 @@ app.put('/api/products/:id', auth, async (req, res) => {
     }
 });
 
-// 4. Delete a Shoe (DELETE) - SECURED
 app.delete('/api/products/:id', auth, async (req, res) => {
-    // Check role from the token payload
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Access denied: Admin role required' });
     }
@@ -325,6 +288,36 @@ app.delete('/api/products/:id', auth, async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+
+// =========================================================
+//                  III. PAYMENT ROUTES (RAZORPAY)
+// =========================================================
+
+// Initialize Razorpay
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+// Create Order Route
+app.post('/api/payment/order', async (req, res) => {
+  const { amount } = req.body;
+
+  try {
+    const options = {
+      amount: amount * 100, // Amount in paisa (100 = 1 INR)
+      currency: "INR",
+      receipt: "receipt_" + Math.random().toString(36).substring(7),
+    };
+
+    const order = await razorpay.orders.create(options);
+    res.json(order);
+  } catch (error) {
+    console.error("Razorpay Error:", error);
+    res.status(500).send(error);
+  }
 });
 
 const PORT = process.env.PORT || 5000;
