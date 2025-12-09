@@ -10,20 +10,32 @@ import ResetPassword from './pages/ResetPassword';
 import { useCart } from './context/CartContext'; 
 import { useAuth } from './context/AuthContext'; 
 
+// --- NEW IMPORT: Login Modal Component ---
+import LoginRequiredModal from './components/LoginRequiredModal'; 
+
 // Home Component receives 'searchTerm' as a prop from App
 function Home({ searchTerm }) {
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null); 
   const { addToCart } = useCart(); 
   
+  // --- NEW STATE: Modal Visibility ---
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  // -----------------------------------
+  
   // --- AUTH SECURITY LOGIC ---
   const { auth } = useAuth();      
   const navigate = useNavigate();  
 
+  const handleModalRedirect = () => {
+    setShowLoginModal(false); // Close modal first
+    navigate('/login');
+  };
+
   const handleAddToCart = (shoe) => {
     if (!auth.token) {
-      alert("Please login to buy shoes! 👟");
-      navigate('/login');
+      // --- FIX: Show Modal instead of alert() ---
+      setShowLoginModal(true); 
       return;
     }
     addToCart(shoe);
@@ -69,11 +81,9 @@ function Home({ searchTerm }) {
     <div className="bg-gray-50 dark:bg-gray-950 transition-colors duration-300 p-4 md:p-8 font-sans animate-fade-in relative overflow-hidden">
       
       {/* --- NEW: Background Glow Effect --- */}
-      {/* This adds a subtle blue light behind the text */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-blue-500/20 dark:bg-blue-600/20 rounded-full blur-[100px] -z-1 pointer-events-none mix-blend-screen"></div>
       
       {/* Hero Section */}
-      {/* Added 'relative z-10' to keep text on top of the glow */}
       <div className="text-center py-12 md:py-20 animate-fade-in-up relative z-10">
         <h1 className="text-5xl md:text-7xl font-black text-gray-900 dark:text-white tracking-tighter mb-6">
           RUN FASTER. <br />
@@ -140,6 +150,14 @@ function Home({ searchTerm }) {
         ))}
       </div>
       )}
+      
+      {/* --- RENDER THE MODAL AT THE BOTTOM --- */}
+      <LoginRequiredModal 
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLoginRedirect={handleModalRedirect}
+      />
+      {/* ------------------------------------------- */}
     </div>
   );
 }
