@@ -69,9 +69,15 @@ app.post('/api/auth/register', async (req, res) => {
 
         await user.save();
         
+        // --- FIX: NODEMAILER CONNECTION TIMEOUT ---
         const transporter = nodemailer.createTransport({
-            service: 'gmail', 
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+            host: 'smtp.gmail.com', // Explicit Host
+            port: 465,             // Secure Port
+            secure: true,          // Use SSL/TLS
+            auth: { 
+                user: process.env.EMAIL_USER, 
+                pass: process.env.EMAIL_PASS 
+            }
         });
 
         // NOTE: In production, change localhost to your Render backend URL if needed for verification
@@ -99,7 +105,8 @@ app.post('/api/auth/register', async (req, res) => {
         res.status(201).json({ message: 'Registration Successful! Please check your email.' });
 
     } catch (err) {
-        console.error('Registration Error:', err.message);
+        // If it's a timeout error, this will show up here.
+        console.error('Registration Error:', err.message); 
         res.status(500).send('Server error');
     }
 });
@@ -150,8 +157,11 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
         await user.save();
 
+        // --- FIX: NODEMAILER CONNECTION TIMEOUT ---
         const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
             auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
         });
 
